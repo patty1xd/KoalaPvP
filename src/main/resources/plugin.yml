@@ -1,0 +1,21 @@
+name: KoalaPvP
+version: '${project.version}'
+main: dev.koala.koalapvp.KoalaPvP
+api-version: '1.21'
+description: Deterministic knockback and combat enhancement for Paper 1.21.1
+authors: [ KoalaDev ]
+website: https://github.com/koaladev/KoalaPvP
+
+commands:
+  koalapvp:
+    description: KoalaPvP main command
+    usage: /koalapvp <reload|status|debug>
+    permission: koalapvp.admin
+
+permissions:
+  koalapvp.admin:
+    description: Access to all KoalaPvP admin commands
+    default: op
+  koalapvp.bypass:
+    description: Bypass the custom knockback system (keeps vanilla KB)
+    default: false
