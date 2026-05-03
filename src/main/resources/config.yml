@@ -1,81 +1,80 @@
 # ============================================================
 #  KoalaPvP Configuration
-#  Paper 1.21.1 - Deterministic Knockback System
+#  Paper 1.21.1 - KnockbackSync-style lag-compensated KB
 # ============================================================
 
-# Worlds where KoalaPvP knockback is active.
-# Use '*' as a single entry to enable in ALL worlds.
+# Worlds where KoalaPvP is active. '*' = all worlds.
 enabled-worlds:
   - '*'
 
 # ------------------------------------------------------------
-#  KNOCKBACK VALUES
+#  KNOCKBACK TUNING
+#  Base values after KnockbackSync compensation is applied.
+#  These are intentionally mild — the sync does the heavy
+#  lifting; tuning just nudges feel on top of a consistent base.
 # ------------------------------------------------------------
 knockback:
+  horizontal: 0.42       # Base horizontal force (vanilla ~0.35)
+  vertical:   0.35       # Base vertical lift    (vanilla ~0.40, lowered for snappier feel)
 
-  # Ground hit knockback (victim standing on ground)
-  ground:
-    horizontal: 0.32   # Base horizontal force
-    vertical:   0.30   # Base vertical lift
-    friction:   2.4    # How quickly horizontal velocity fades
-
-  # Air hit knockback (victim mid-air)
-  air:
-    horizontal: 0.28
-    vertical:   0.27
+  # Halve victim's current horizontal momentum before applying KB
+  # (mirrors vanilla behavior — keep true for authentic feel)
+  halve-existing-horizontal: true
 
   # Sprint bonus added to horizontal when attacker is sprinting
-  sprint-bonus: 0.03
+  sprint-bonus: 0.02
 
-  # Knockback I enchantment multipliers
+  # Knockback enchantment additive bonuses
   enchant-kb1:
     horizontal-add: 0.50
     vertical-add:   0.10
-
-  # Knockback II enchantment multipliers
   enchant-kb2:
     horizontal-add: 1.00
     vertical-add:   0.20
 
-  # Attack cooldown scaling
+  # Attack cooldown
   cooldown:
     enabled: true
-    min-charge-threshold: 0.1   # Hits below this charge fraction are ignored
-    scale-knockback: true        # Scale KB linearly with charge
+    min-charge-threshold: 0.10   # Hits below this fraction apply no KB (damage still lands)
+    scale-knockback: true         # Scale KB linearly with charge²
 
-  # Velocity smoothing: apply KB over N ticks
-  # 1 = instant (classic), 2 = smooth over 2 ticks (recommended)
-  smoothing-ticks: 2
+  # Velocity clamps — safety ceiling
+  max-horizontal-velocity: 2.0
+  max-vertical-velocity:   0.8
 
-  # Clamp Y velocity
-  max-vertical-velocity: 0.55
+  # Netherite resistance (each piece = 10%, max 40%)
+  respect-netherite-resistance: true
 
-  # Reset victim's existing velocity before applying new KB
-  reset-existing-velocity: true
+# ------------------------------------------------------------
+#  PING COMPENSATION  (KnockbackSync core)
+# ------------------------------------------------------------
+ping-compensation:
+  enabled: true
+
+  # Ticks considered "stale" per 50ms of ping.
+  # e.g. 100ms ping → 2 stale ticks.
+  ms-per-tick: 50
+
+  # Maximum stale ticks to consider (caps compensation at this many ticks).
+  max-stale-ticks: 8
+
+  # Ground-state trust threshold.
+  # If staleness > this, we assume the victim is airborne to avoid
+  # eating vertical KB on players the server incorrectly thinks are grounded.
+  ground-trust-max-ticks: 1
 
 # ------------------------------------------------------------
 #  HIT VALIDATION
 # ------------------------------------------------------------
 hit-validation:
   enabled: true
-
-  # Maximum allowed distance (blocks) between attacker and victim
-  max-range: 4.5
-
-  # Lag compensation leniency
+  max-range: 4.5              # XZ-only distance in blocks
   lag-compensation: true
-  lag-compensation-ms-per-block: 50   # 50ms ping = +1 block leniency
-  lag-compensation-max-bonus: 2.0     # Never add more than 2 extra blocks
-
-# ------------------------------------------------------------
-#  ARMOR RULES
-# ------------------------------------------------------------
-armor:
-  respect-netherite-resistance: true
+  lag-compensation-ms-per-block: 50
+  lag-compensation-max-bonus:    2.0
 
 # ------------------------------------------------------------
 #  DEBUG
 # ------------------------------------------------------------
 debug:
   log-hits: false
-  show-vectors: false
