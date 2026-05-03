@@ -17,21 +17,26 @@ public final class KoalaPvP extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
+        // Save and load configuration
         saveDefaultConfig();
         koalaConfig = new KoalaConfig(this);
         koalaConfig.load();
 
+        // Boot knockback engine
         knockbackEngine = new KnockbackEngine(this);
 
+        // Register listeners
         getServer().getPluginManager().registerEvents(new CombatListener(this), this);
 
+        // Register command
         KoalaPvPCommand cmd = new KoalaPvPCommand(this);
         getCommand("koalapvp").setExecutor(cmd);
         getCommand("koalapvp").setTabCompleter(cmd);
 
         Logger.info("&aKoalaPvP &7v" + getDescription().getVersion() + " &aenabled.");
-        Logger.info("&7Knockback engine ready. Smoothing ticks: &e"
-                + koalaConfig.getSmoothingTicks());
+        Logger.info("&7Ping compensation: &e" + koalaConfig.isPingCompEnabled()
+                + " &7| H: &e" + koalaConfig.getHorizontal()
+                + " &7V: &e" + koalaConfig.getVertical());
     }
 
     @Override
@@ -39,7 +44,15 @@ public final class KoalaPvP extends JavaPlugin {
         Logger.info("&cKoalaPvP disabled.");
     }
 
-    public static KoalaPvP getInstance() { return instance; }
-    public KoalaConfig getKoalaConfig()  { return koalaConfig; }
-    public KnockbackEngine getKnockbackEngine() { return knockbackEngine; }
+    public static KoalaPvP getInstance() {
+        return instance;
+    }
+
+    public KoalaConfig getKoalaConfig() {
+        return koalaConfig;
+    }
+
+    public KnockbackEngine getKnockbackEngine() {
+        return knockbackEngine;
+    }
 }
