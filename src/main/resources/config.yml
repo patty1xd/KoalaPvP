@@ -1,6 +1,6 @@
 # ============================================================
-#  KoalaPvP Configuration
-#  Paper 1.21.1 - KnockbackSync-style lag-compensated KB
+#  KoalaPvP - KnockbackSync-style ping compensation
+#  Paper 1.21.1
 # ============================================================
 
 # Worlds where KoalaPvP is active. '*' = all worlds.
@@ -8,59 +8,22 @@ enabled-worlds:
   - '*'
 
 # ------------------------------------------------------------
-#  KNOCKBACK TUNING
-#  Base values after KnockbackSync compensation is applied.
-#  These are intentionally mild — the sync does the heavy
-#  lifting; tuning just nudges feel on top of a consistent base.
-# ------------------------------------------------------------
-knockback:
-  horizontal: 0.42       # Base horizontal force (vanilla ~0.35)
-  vertical:   0.35       # Base vertical lift    (vanilla ~0.40, lowered for snappier feel)
-
-  # Halve victim's current horizontal momentum before applying KB
-  # (mirrors vanilla behavior — keep true for authentic feel)
-  halve-existing-horizontal: true
-
-  # Sprint bonus added to horizontal when attacker is sprinting
-  sprint-bonus: 0.02
-
-  # Knockback enchantment additive bonuses
-  enchant-kb1:
-    horizontal-add: 0.50
-    vertical-add:   0.10
-  enchant-kb2:
-    horizontal-add: 1.00
-    vertical-add:   0.20
-
-  # Attack cooldown
-  cooldown:
-    enabled: true
-    min-charge-threshold: 0.10   # Hits below this fraction apply no KB (damage still lands)
-    scale-knockback: true         # Scale KB linearly with charge²
-
-  # Velocity clamps — safety ceiling
-  max-horizontal-velocity: 2.0
-  max-vertical-velocity:   0.8
-
-  # Netherite resistance (each piece = 10%, max 40%)
-  respect-netherite-resistance: true
-
-# ------------------------------------------------------------
-#  PING COMPENSATION  (KnockbackSync core)
+#  PING COMPENSATION
+#  This is the core feature. Vanilla KB is used as-is.
+#  We only correct the ground-state desync caused by lag.
 # ------------------------------------------------------------
 ping-compensation:
   enabled: true
 
-  # Ticks considered "stale" per 50ms of ping.
-  # e.g. 100ms ping → 2 stale ticks.
+  # How many ms equals one tick of stale state (default 50 = one tick)
   ms-per-tick: 50
 
-  # Maximum stale ticks to consider (caps compensation at this many ticks).
+  # Maximum stale ticks to compensate (caps at this regardless of ping)
   max-stale-ticks: 8
 
-  # Ground-state trust threshold.
-  # If staleness > this, we assume the victim is airborne to avoid
-  # eating vertical KB on players the server incorrectly thinks are grounded.
+  # If victim's state is stale by more than this many ticks, treat as airborne.
+  # Prevents vertical KB being eaten when server thinks victim is grounded
+  # but their client is already in the air.
   ground-trust-max-ticks: 1
 
 # ------------------------------------------------------------
@@ -68,10 +31,14 @@ ping-compensation:
 # ------------------------------------------------------------
 hit-validation:
   enabled: true
-  max-range: 4.5              # XZ-only distance in blocks
+
+  # XZ-only (horizontal) max distance in blocks
+  max-range: 4.5
+
+  # Add leniency based on attacker + victim ping
   lag-compensation: true
   lag-compensation-ms-per-block: 50
-  lag-compensation-max-bonus:    2.0
+  lag-compensation-max-bonus: 2.0
 
 # ------------------------------------------------------------
 #  DEBUG
