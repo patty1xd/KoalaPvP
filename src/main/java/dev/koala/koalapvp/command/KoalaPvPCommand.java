@@ -22,44 +22,36 @@ public final class KoalaPvPCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
         if (!sender.hasPermission("koalapvp.admin")) {
-            sender.sendMessage(color("&cYou don't have permission to use this command."));
+            sender.sendMessage(color("&cNo permission."));
             return true;
         }
 
-        if (args.length == 0) {
-            sendHelp(sender, label);
-            return true;
-        }
+        if (args.length == 0) { sendHelp(sender, label); return true; }
 
         switch (args[0].toLowerCase()) {
 
             case "reload" -> {
                 plugin.getKoalaConfig().load();
-                sender.sendMessage(color("&aKoalaPvP &7config reloaded successfully."));
+                sender.sendMessage(color("&aKoalaPvP &7config reloaded."));
                 Logger.info("Config reloaded by " + sender.getName());
             }
 
             case "status" -> {
                 var cfg = plugin.getKoalaConfig();
                 sender.sendMessage(color("&8&m----&r &bKoalaPvP Status &8&m----"));
-                sender.sendMessage(color("&7Version:      &e" + plugin.getDescription().getVersion()));
-                sender.sendMessage(color("&7Horizontal:   &e" + cfg.getHorizontal()));
-                sender.sendMessage(color("&7Vertical:     &e" + cfg.getVertical()));
-                sender.sendMessage(color("&7Sprint bonus: &e+" + cfg.getSprintBonus()));
-                sender.sendMessage(color("&7Ping comp:    &e" + cfg.isPingCompEnabled()
-                        + " &7(trust ≤ &e" + cfg.getGroundTrustMaxTicks() + " &7stale ticks)"));
-                sender.sendMessage(color("&7Validation:   &e" + cfg.isHitValidationEnabled()
+                sender.sendMessage(color("&7Version:          &e" + plugin.getDescription().getVersion()));
+                sender.sendMessage(color("&7Ping comp:         &e" + cfg.isPingCompEnabled()));
+                sender.sendMessage(color("&7Ms per tick:       &e" + cfg.getMsPerTick()));
+                sender.sendMessage(color("&7Max stale ticks:   &e" + cfg.getMaxStaleTicks()));
+                sender.sendMessage(color("&7Ground trust ticks:&e" + cfg.getGroundTrustMaxTicks()));
+                sender.sendMessage(color("&7Hit validation:    &e" + cfg.isHitValidationEnabled()
                         + " &7(range &e" + cfg.getMaxRange() + " &7blocks)"));
-                sender.sendMessage(color("&7Lag-comp:     &e" + cfg.isLagCompensation()));
-                sender.sendMessage(color("&7Cooldown:     &e" + cfg.isCooldownEnabled()
-                        + " &7(scale: &e" + cfg.isScaleKnockback() + "&7)"));
-                sender.sendMessage(color("&7Debug:        &e" + cfg.isLogHits()));
+                sender.sendMessage(color("&7Lag compensation:  &e" + cfg.isLagCompensation()));
+                sender.sendMessage(color("&7Debug logging:     &e" + cfg.isLogHits()));
             }
 
             case "debug" -> {
-                // Toggle debug logging at runtime without a full reload
                 boolean current = plugin.getKoalaConfig().isLogHits();
-                // We re-write config and reload just the debug node
                 plugin.getConfig().set("debug.log-hits", !current);
                 plugin.saveConfig();
                 plugin.getKoalaConfig().load();
@@ -68,15 +60,14 @@ public final class KoalaPvPCommand implements CommandExecutor, TabCompleter {
 
             default -> sendHelp(sender, label);
         }
-
         return true;
     }
 
     private void sendHelp(CommandSender sender, String label) {
         sender.sendMessage(color("&8&m----&r &bKoalaPvP Commands &8&m----"));
-        sender.sendMessage(color("&e/" + label + " reload &7— Reload config.yml"));
-        sender.sendMessage(color("&e/" + label + " status &7— Show current KB values"));
-        sender.sendMessage(color("&e/" + label + " debug  &7— Toggle hit debug logging"));
+        sender.sendMessage(color("&e/" + label + " reload &7- Reload config"));
+        sender.sendMessage(color("&e/" + label + " status &7- Show current settings"));
+        sender.sendMessage(color("&e/" + label + " debug  &7- Toggle hit logging"));
     }
 
     private String color(String s) {
@@ -85,11 +76,9 @@ public final class KoalaPvPCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) {
+        if (args.length == 1)
             return List.of("reload", "status", "debug").stream()
-                    .filter(s -> s.startsWith(args[0].toLowerCase()))
-                    .toList();
-        }
+                    .filter(s -> s.startsWith(args[0].toLowerCase())).toList();
         return List.of();
     }
 }
