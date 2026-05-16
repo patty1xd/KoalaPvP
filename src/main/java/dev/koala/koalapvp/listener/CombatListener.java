@@ -10,25 +10,20 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 /**
- * Main combat event handler.
+ * Intercepts PvP hits and applies KnockbackSync-style ground-state correction.
  *
- * Priority: MONITOR (not HIGHEST).
- *   We run last, after every other plugin has processed the event.
- *   We only act if the event is still not cancelled.
- *   Using MONITOR means we never interfere with damage modifiers —
- *   we just override the velocity that vanilla is about to write.
+ * Priority: MONITOR — we run after everything else, including vanilla damage
+ * processing. ignoreCancelled = true so we never act on blocked/cancelled hits.
  *
- * Vanilla KB suppression — Paper 1.21.1:
- *   setKnockbackCancelled() does not exist on this API version.
- *   We schedule a 0-tick delayed task. It fires at the end of the same
- *   server tick, after Paper has already written vanilla KB into the
- *   victim's velocity. Our engine then overwrites that with the
- *   ping-compensated vector. Damage is committed before this task fires.
+ * We do NOT cancel or replace vanilla KB. Vanilla handles all the knockback
+ * math. Our only job is to capture the victim's ground state at event time
+ * (before it goes stale) and pass it to the engine via a 0-tick task that
+ * runs after Paper has written its vanilla KB velocity.
  *
- * Charge capture:
- *   getAttackCooldown() is read HERE at event time. The 0-tick delay
- *   runs after the server resets it to 1.0, so reading it there would
- *   break cooldown scaling entirely.
+ * Ground state must be captured HERE because:
+ *   - The 0-tick task fires after Paper updates entity positions
+ *   - victim.isOnGround() inside the task may return a different (updated) value
+ *   - We need the state as-of the hit, not as-of 1 tick later
  */
 public final class CombatListener implements Listener {
 
@@ -43,45 +38,38 @@ public final class CombatListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDamage(EntityDamageByEntityEvent event) {
 
-        // ── 1. Both must be players ──────────────────────────────────────
+        // Both must be players
         if (!(event.getDamager() instanceof Player attacker)) return;
         if (!(event.getEntity()  instanceof Player victim))   return;
 
-        // ── 2. World enabled ─────────────────────────────────────────────
+        // World enabled
         if (!plugin.getKoalaConfig().isWorldEnabled(victim.getWorld().getName())) return;
 
-        // ── 3. Bypass permission ─────────────────────────────────────────
+        // Bypass permission
         if (attacker.hasPermission("koalapvp.bypass")) return;
 
-        // ── 4. Shield block — let vanilla handle push-back ───────────────
+        // Shield block — vanilla handles it, don't interfere
         if (victim.isBlocking()) return;
 
-        // ── 5. Capture charge NOW — before the 0-tick delay resets it ────
-        final float charge = attacker.getAttackCooldown();
-
-        // ── 6. Fast cooldown gate — skip range check on weak hits ─────────
-        if (plugin.getKoalaConfig().isCooldownEnabled()
-                && charge < plugin.getKoalaConfig().getMinChargeThreshold()) {
-            // Damage already committed; just don't apply KB
-            return;
-        }
-
-        // ── 7. Hit validation — XZ range + lag compensation ──────────────
+        // Hit validation — XZ range + lag compensation
         if (!hitValidator.validate(attacker, victim)) {
             event.setCancelled(true);
             if (plugin.getKoalaConfig().isLogHits())
                 Logger.debug("Hit cancelled (range): "
-                        + attacker.getName() + " → " + victim.getName());
+                        + attacker.getName() + " -> " + victim.getName());
             return;
         }
 
-        // ── 8. Schedule KB override for end of this tick ─────────────────
-        // 0-tick delay: fires after Paper writes vanilla KB velocity.
-        // Engine reads victim.getVelocity() at that point (which includes
-        // vanilla KB), then overwrites with ping-compensated vector.
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (!victim.isOnline()) return;
-            plugin.getKnockbackEngine().applyKnockback(attacker, victim, charge);
-        });
+        // Capture ground state NOW at event time before it becomes stale.
+        // This is the key data point for ping compensation.
+        final boolean wasOnGround = victim.isOnGround();
+
+        // Schedule compensation for end of this tick.
+        // By then Paper has written vanilla KB into victim's velocity.
+        // The engine checks if ground-state desync caused missing vertical KB
+        // and patches it if so.
+        plugin.getServer().getScheduler().runTask(plugin, () ->
+            plugin.getKnockbackEngine().compensate(victim, wasOnGround)
+        );
     }
 }
