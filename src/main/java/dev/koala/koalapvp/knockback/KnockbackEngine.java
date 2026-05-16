@@ -1,64 +1,81 @@
 package dev.koala.koalapvp.knockback;
 
 import dev.koala.koalapvp.KoalaPvP;
+import dev.koala.koalapvp.util.Logger;
 import org.bukkit.entity.Player;
-
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.util.Vector;
 
 /**
- * Applies a computed KnockbackProfile to the victim.
+ * KnockbackSync-style ground-state compensation.
  *
- * No smoothing loop — the KnockbackSync approach works by correctly
- * computing what the velocity should be in one shot, including preserved
- * momentum and ping-compensated ground state. Spreading it over ticks
- * was a workaround for inaccurate calculation; with accurate calculation
- * it adds latency and unpredictability instead of helping.
+ * What this does (and only this):
+ *   Vanilla KB is applied normally by Paper. The only problem we fix is the
+ *   ground-state desync: the server's record of whether the victim is on the
+ *   ground is (ping/50) ticks stale. If the victim is high-ping and the server
+ *   wrongly thinks they're grounded, Paper skips applying vertical velocity.
+ *   We detect that case and re-apply the vertical component ourselves.
  *
- * Anti-stacking: we track in-flight tasks per UUID. If a second hit lands
- * before the 0-tick delay from the first has fired (extremely fast, but
- * possible under packet bursts), we cancel the pending one so only the
- * latest KB vector applies.
+ * What this does NOT do:
+ *   - Change horizontal KB values
+ *   - Change vertical KB values
+ *   - Add custom force calculations
+ *   Everything is vanilla except the ground-state correction.
+ *
+ * Timing:
+ *   Called from a 0-tick delayed task so Paper has already written its
+ *   vanilla KB into the victim's velocity. We read that velocity and only
+ *   patch the Y component when the ground state was likely wrong.
  */
 public final class KnockbackEngine {
 
     private final KoalaPvP plugin;
-    private final KnockbackCalculator calculator;
-
-    // Tracks pending 0-tick task IDs to cancel stale ones on rapid hits
-    private final Map<UUID, Integer> pendingTaskIds = new ConcurrentHashMap<>();
 
     public KnockbackEngine(KoalaPvP plugin) {
-        this.plugin     = plugin;
-        this.calculator = new KnockbackCalculator(plugin.getKoalaConfig());
+        this.plugin = plugin;
     }
 
     /**
-     * Compute and apply knockback for a hit.
-     * Must be called from the main thread (inside the 0-tick delayed task).
+     * Apply ping-compensated ground-state correction to vanilla KB.
      *
-     * @param charge attack cooldown fraction captured at event time
+     * @param victim     the player who was hit
+     * @param wasOnGround ground state captured at event time (before 0-tick delay)
      */
-    public void applyKnockback(Player attacker, Player victim, float charge) {
-        KnockbackProfile profile = calculator.compute(attacker, victim, charge);
-        if (!profile.isValid()) return;
+    public void compensate(Player victim, boolean wasOnGround) {
+        if (!victim.isOnline()) return;
 
-        // Cancel any still-pending task for this victim (anti-stack)
-        cancelPending(victim.getUniqueId());
-
-        // Apply immediately — calculator already built the correct final vector
-        victim.setVelocity(profile.getVelocity());
-    }
-
-    public void cancelPending(UUID uuid) {
-        Integer taskId = pendingTaskIds.remove(uuid);
-        if (taskId != null) {
-            plugin.getServer().getScheduler().cancelTask(taskId);
+        // How stale is the server's ground state for this victim?
+        int pingTicks = 0;
+        if (plugin.getKoalaConfig().isPingCompEnabled()) {
+            pingTicks = Math.min(
+                victim.getPing() / plugin.getKoalaConfig().getMsPerTick(),
+                plugin.getKoalaConfig().getMaxStaleTicks()
+            );
         }
-    }
 
-    public KnockbackCalculator getCalculator() {
-        return calculator;
+        // If ping is low enough that ground state is trustworthy, nothing to fix
+        if (pingTicks <= plugin.getKoalaConfig().getGroundTrustMaxTicks()) {
+            return;
+        }
+
+        // High ping: server ground state is stale. If vanilla thought victim was
+        // grounded and skipped vertical KB, the victim's Y velocity will be near
+        // zero or slightly negative (gravity). We fix it by checking: if
+        // wasOnGround (event-time capture) and Y velocity is very small, vanilla
+        // probably applied horizontal-only KB and skipped vertical. Re-apply it.
+        Vector vel = victim.getVelocity();
+
+        // Vanilla vertical KB when grounded is ~0.4. If we see Y < 0.1 and the
+        // event-time ground state said grounded, vanilla skipped it — apply it.
+        if (wasOnGround && vel.getY() < 0.1) {
+            vel.setY(0.4); // vanilla default vertical KB on ground hit
+            victim.setVelocity(vel);
+
+            if (plugin.getKoalaConfig().isLogHits()) {
+                Logger.debug(String.format(
+                    "PingComp | %s ping=%dms staleTicks=%d — patched vertical Y to 0.4",
+                    victim.getName(), victim.getPing(), pingTicks
+                ));
+            }
+        }
     }
 }
