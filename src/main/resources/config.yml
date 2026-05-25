@@ -35,10 +35,13 @@ hit-validation:
   # XZ-only (horizontal) max distance in blocks
   max-range: 4.5
 
-  # Add leniency based on attacker + victim ping
+  # Add leniency based on the ATTACKER's ping. Using both attacker + victim
+  # ping (the old behavior) double-counted and pushed effective reach to 8.5
+  # blocks — reach-hack territory. Effective reach is now bounded at
+  # max-range + lag-compensation-max-bonus.
   lag-compensation: true
   lag-compensation-ms-per-block: 50
-  lag-compensation-max-bonus: 2.0
+  lag-compensation-max-bonus: 1.0
 
 # ------------------------------------------------------------
 #  DEBUG
