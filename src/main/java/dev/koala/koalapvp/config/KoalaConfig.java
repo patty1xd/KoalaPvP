@@ -43,7 +43,8 @@ public class KoalaConfig {
         FileConfiguration cfg = plugin.getConfig();
 
         enabledWorlds = cfg.getStringList("enabled-worlds");
-        allWorlds     = enabledWorlds.size() == 1 && enabledWorlds.get(0).equals("*");
+        // '*' anywhere in the list means "all worlds", not only when sole entry.
+        allWorlds     = enabledWorlds.contains("*");
 
         pingCompEnabled     = cfg.getBoolean("ping-compensation.enabled",            true);
         msPerTick           = cfg.getInt("ping-compensation.ms-per-tick",            50);
