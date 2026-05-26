@@ -27,6 +27,7 @@ public class KoalaConfig {
     // Hit validation
     private boolean hitValidationEnabled;
     private double  maxRange;
+    private boolean rewindEnabled;
     private boolean lagCompensation;
     private double  lagCompMsPerBlock;
     private double  lagCompMaxBonus;
@@ -53,6 +54,7 @@ public class KoalaConfig {
 
         hitValidationEnabled = cfg.getBoolean("hit-validation.enabled",              true);
         maxRange             = cfg.getDouble("hit-validation.max-range",             4.5);
+        rewindEnabled        = cfg.getBoolean("hit-validation.rewind",               true);
         lagCompensation      = cfg.getBoolean("hit-validation.lag-compensation",     true);
         lagCompMsPerBlock    = cfg.getDouble("hit-validation.lag-compensation-ms-per-block", 50.0);
         lagCompMaxBonus      = cfg.getDouble("hit-validation.lag-compensation-max-bonus",    2.0);
@@ -73,6 +75,7 @@ public class KoalaConfig {
     public int     getGroundTrustMaxTicks()  { return groundTrustMaxTicks; }
     public boolean isHitValidationEnabled()  { return hitValidationEnabled; }
     public double  getMaxRange()             { return maxRange; }
+    public boolean isRewindEnabled()         { return rewindEnabled; }
     public boolean isLagCompensation()       { return lagCompensation; }
     public double  getLagCompMsPerBlock()    { return lagCompMsPerBlock; }
     public double  getLagCompMaxBonus()      { return lagCompMaxBonus; }
