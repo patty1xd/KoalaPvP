@@ -36,12 +36,12 @@
             <scope>provided</scope>
         </dependency>
         <!-- PacketEvents — used to read the client's actual onGround flag
-             from PLAYER_FLYING / PLAYER_POSITION packets, giving us ground-
-             truth client state instead of a server-side heuristic. -->
+             from PLAYER_FLYING / PLAYER_POSITION packets, and INTERACT_ENTITY
+             packets for lag-compensated hit registration. -->
         <dependency>
             <groupId>com.github.retrooper</groupId>
             <artifactId>packetevents-spigot</artifactId>
-            <version>2.5.0</version>
+            <version>2.12.1</version>
         </dependency>
     </dependencies>
 
