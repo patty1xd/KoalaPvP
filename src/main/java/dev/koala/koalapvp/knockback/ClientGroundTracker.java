@@ -2,7 +2,9 @@ package dev.koala.koalapvp.knockback;
 
 import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.protocol.ConnectionState;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import dev.koala.koalapvp.KoalaPvP;
 import org.bukkit.Bukkit;
@@ -46,13 +48,20 @@ public final class ClientGroundTracker implements PacketListener, Listener {
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
-        PacketType.Play.Client type = (PacketType.Play.Client) event.getPacketType();
+        // Ignore packets from the 1.20.2+ Configuration phase — they're a
+        // different enum branch and casting them to Play.Client throws CCE.
+        if (event.getConnectionState() != ConnectionState.PLAY) return;
+
+        // Compare by reference (no cast) so we don't blow up if PacketEvents
+        // ever surfaces another packet-type family here.
+        PacketTypeCommon type = event.getPacketType();
         if (type != PacketType.Play.Client.PLAYER_FLYING
                 && type != PacketType.Play.Client.PLAYER_POSITION
                 && type != PacketType.Play.Client.PLAYER_ROTATION
                 && type != PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION) {
             return;
         }
+
         UUID uuid = event.getUser().getUUID();
         if (uuid == null) return;
         WrapperPlayClientPlayerFlying wrapper = new WrapperPlayClientPlayerFlying(event);
