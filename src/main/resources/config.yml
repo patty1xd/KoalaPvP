@@ -35,10 +35,17 @@ hit-validation:
   # XZ-only (horizontal) max distance in blocks
   max-range: 4.5
 
-  # Add leniency based on the ATTACKER's ping. Using both attacker + victim
-  # ping (the old behavior) double-counted and pushed effective reach to 8.5
-  # blocks — reach-hack territory. Effective reach is now bounded at
-  # max-range + lag-compensation-max-bonus.
+  # PACKET-LEVEL REWIND — recommended.
+  # Reads the INTERACT_ENTITY packet directly off netty and validates the
+  # hit against the victim's position from `attacker.ping` ms ago — i.e. the
+  # position the attacker actually saw on their screen when they swung.
+  # No static ping bonus, no false rejects for high-ping players.
+  rewind: true
+
+  # FALLBACK static-bonus lag compensation. Only used when packet rewind
+  # has no approval on file for the hit (e.g. modded clients that mask the
+  # INTERACT_ENTITY packet, or the very first hit before any history exists).
+  # Capped at max-range + lag-compensation-max-bonus blocks of effective reach.
   lag-compensation: true
   lag-compensation-ms-per-block: 50
   lag-compensation-max-bonus: 1.0
