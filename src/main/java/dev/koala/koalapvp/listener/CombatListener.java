@@ -32,7 +32,7 @@ public final class CombatListener implements Listener {
 
     public CombatListener(KoalaPvP plugin) {
         this.plugin       = plugin;
-        this.hitValidator = new HitValidator(plugin.getKoalaConfig());
+        this.hitValidator = new HitValidator(plugin.getKoalaConfig(), plugin.getHitLagCompensator());
     }
 
     /** Stage 1 — validate + cancel before vanilla processes the hit. */
