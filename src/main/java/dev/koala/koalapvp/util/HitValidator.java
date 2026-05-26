@@ -1,33 +1,48 @@
 package dev.koala.koalapvp.util;
 
 import dev.koala.koalapvp.config.KoalaConfig;
+import dev.koala.koalapvp.hit.HitLagCompensator;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 /**
- * Hit-distance validator.
+ * Hit-distance validator with two tiers:
  *
- * Distance is computed in XZ (horizontal) — vanilla reach is dominated by the
- * horizontal component of bounding-box intersection — plus a separate vertical
- * ({@code |dy|}) ceiling so an attacker can't reach straight up/down past
- * their hitbox.
+ *   1. Packet-level rewind (preferred). {@link HitLagCompensator} watches
+ *      INTERACT_ENTITY packets directly off the netty thread and approves a
+ *      hit if the victim's position {@code attacker.ping} ms ago was within
+ *      reach. If an approval exists, the hit goes through with NO additional
+ *      ping-based leniency — accuracy comes from the rewind, not from a
+ *      static reach bonus.
  *
- * Lag compensation adds leniency based on the ATTACKER's ping. The relevant
- * lag for hit registration is how far the attacker's actions are delayed, not
- * the victim's. A guard handles the {@code -1} sentinel Paper returns for
- * players whose ping hasn't been computed yet.
+ *   2. Server-current XZ fallback. If no packet approval is on file (player
+ *      on a launcher that masks packets, or no rewind history yet), fall back
+ *      to the legacy XZ + dy check with the optional static ping bonus.
+ *
+ * Vertical distance is bounded so reach-from-above/below can't slip through
+ * an XZ-only check.
  */
 public final class HitValidator {
 
     private final KoalaConfig cfg;
+    private final HitLagCompensator compensator;
 
-    public HitValidator(KoalaConfig cfg) {
+    public HitValidator(KoalaConfig cfg, HitLagCompensator compensator) {
         this.cfg = cfg;
+        this.compensator = compensator;
     }
 
     public boolean validate(Player attacker, Player victim) {
         if (!cfg.isHitValidationEnabled()) return true;
 
+        // Tier 1 — packet-level rewind approval (most accurate, no ping bonus needed)
+        if (cfg.isRewindEnabled()
+                && compensator != null
+                && compensator.isHitApproved(attacker.getUniqueId(), victim.getUniqueId())) {
+            return true;
+        }
+
+        // Tier 2 — fallback XZ + dy check with optional static ping bonus
         Location a = attacker.getLocation();
         Location b = victim.getLocation();
 
@@ -37,14 +52,12 @@ public final class HitValidator {
         double maxXZ = cfg.getMaxRange();
         if (cfg.isLagCompensation()) maxXZ += lagBonus(attacker);
 
-        // Vertical ceiling — same base range +1; XZ-only would otherwise let
-        // reach hacks from above/below sail through.
         double maxY = cfg.getMaxRange() + 1.0;
 
         boolean ok = xz <= maxXZ && dy <= maxY;
         if (!ok && cfg.isLogHits()) {
             Logger.debug(String.format(
-                "HitValidator REJECT | %s->%s xz=%.2f dy=%.2f maxXZ=%.2f maxY=%.2f",
+                "HitValidator REJECT | %s->%s xz=%.2f dy=%.2f maxXZ=%.2f maxY=%.2f (no rewind approval)",
                 attacker.getName(), victim.getName(), xz, dy, maxXZ, maxY));
         }
         return ok;
@@ -57,8 +70,8 @@ public final class HitValidator {
     }
 
     private double lagBonus(Player p) {
-        int ping = Math.max(0, p.getPing());                       // guard -1 sentinel
-        double per = Math.max(1.0, cfg.getLagCompMsPerBlock());    // guard /0
+        int ping = Math.max(0, p.getPing());                    // guard -1 sentinel
+        double per = Math.max(1.0, cfg.getLagCompMsPerBlock()); // guard /0
         return Math.min(ping / per, cfg.getLagCompMaxBonus());
     }
 }
